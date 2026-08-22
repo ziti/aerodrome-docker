@@ -6,11 +6,10 @@ services:
       args:
         AERODROME_REF: v3.4.123
 
-    container_name: aerodrome
     restart: unless-stopped
 
     ports:
-      - "8000:8000"
+      - "${AERODROME_BIND_ADDRESS:-0.0.0.0}:${AERODROME_HOST_PORT:-8000}:8000"
 
     environment:
       TZ: America/Chicago
@@ -22,6 +21,17 @@ services:
       - python3
       - main.py
       - start
+
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv/bin/python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=5)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   aerodrome-data:

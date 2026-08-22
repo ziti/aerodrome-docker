@@ -59,11 +59,10 @@ services:
       args:
         AERODROME_REF: v3.4.123
 
-    container_name: aerodrome
     restart: unless-stopped
 
     ports:
-      - "8000:8000"
+      - "${AERODROME_BIND_ADDRESS:-0.0.0.0}:${AERODROME_HOST_PORT:-8000}:8000"
 
     environment:
       TZ: America/Chicago
@@ -76,13 +75,32 @@ services:
       - main.py
       - start
 
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv/bin/python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=5)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   aerodrome-data:
 ```
 
+Compose assigns the container and volume names from the Compose project name, so independent stacks do not collide. To run parallel stacks on one host, give each a different project name and host port:
+
+```bash
+AERODROME_HOST_PORT=8001 docker compose --project-name aerodrome-lab up -d --build
+```
+
+The healthcheck reports whether `/api/ready` is responsive. Docker marks a failed check as `unhealthy`, but `restart: unless-stopped` only restarts a container after its process exits; it does not restart an unhealthy process. Use Dockhand or another health-aware monitor if automatic remediation of an unhealthy-but-running process is required.
+
 ## Dockhand Deployment
 
-This repository can be deployed as a Git-backed Dockhand stack. Enable **Build images on deploy** and deploy the repository; no container registry is required. The Compose-defined `aerodrome-data` named volume retains Aerodrome's configuration and SQLite database across normal redeployments.
+This repository can be deployed as a Git-backed Dockhand stack. Enable **Build images on deploy** and deploy the repository; no application image registry is required. The build environment must be able to authenticate to `dhi.io` for the Docker Hardened Images base images. The Compose-defined `aerodrome-data` named volume retains Aerodrome's configuration and SQLite database across normal redeployments.
 
 ## Version Pinning
 
@@ -156,7 +174,28 @@ Do not store the database in the container's application directory unless you ar
 
 ## Image Security
 
-The image uses a multi-stage build and a minimal non-root hardened runtime image. Build-only tooling, including Git, remains in the builder stage; it is not included in the runtime image.
+The image uses a multi-stage build and a minimal non-root hardened runtime image. Build-only tooling, including Git and `pip`, remains in or is removed during the builder stage. The runtime copy excludes the upstream Git metadata, CI configuration, tests, development requirements, scripts, tools, logs, and update artifacts while retaining the files Aerodrome needs to run and the upstream license.
+
+## Health and Automated Testing
+
+Check readiness and health with:
+
+```bash
+curl --fail http://localhost:8000/api/ready
+docker compose ps
+```
+
+The integration test builds the image, starts an isolated Compose project, waits for `/api/ready`, verifies runtime pruning, recreates the container, and confirms that the configuration, SQLite database, and a test marker survived in the named volume:
+
+```bash
+./scripts/integration-test.sh
+```
+
+The test removes its own temporary project and volume when it finishes. GitHub Actions runs static validation and the integration test. Configure repository secrets named `DHI_USERNAME` and `DHI_TOKEN` so CI can pull the authenticated Docker Hardened Images base images. Integration tests are skipped for pull requests from forks because GitHub does not expose repository secrets to them.
+
+## Backups
+
+The named volume is persistent, not inherently backed up. Configure scheduled backups and perform restore drills before treating the deployment as durable. See [BACKUP.md](BACKUP.md) for the recommended Dockhand and Restic workflow, application-consistency guidance, data-loss scenarios, and restore verification.
 
 ## Logs
 
@@ -184,13 +223,21 @@ docker compose down
 docker compose down -v
 ```
 
+Host loss, Docker volume pruning, corruption, operator error, and failed upgrades can also destroy or invalidate the data. A tested off-host backup is the recovery boundary.
+
 ## Repository Layout
 
 ```text
 aerodrome-docker/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── scripts/
+│   └── integration-test.sh
+├── BACKUP.md
 ├── Dockerfile
 ├── docker-compose.yml
-├── docker-entrypoint.sh
+├── docker-entrypoint.py
 ├── README.md
 ├── LICENSE
 └── .gitignore
@@ -216,6 +263,11 @@ docker run -d \
   --restart unless-stopped \
   -p 8000:8000 \
   -v aerodrome-data:/data \
+  --health-cmd "/opt/venv/bin/python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=5)\"" \
+  --health-interval 10s \
+  --health-timeout 5s \
+  --health-retries 5 \
+  --health-start-period 30s \
   aerodrome:local
 ```
 
