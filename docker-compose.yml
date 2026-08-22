@@ -4,12 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Pin this rather than building main once you're happy with a version.
         AERODROME_REF: v3.4.123
 
     container_name: aerodrome
-    hostname: aerodrome
-
     restart: unless-stopped
 
     ports:
@@ -19,28 +16,12 @@ services:
       TZ: America/Chicago
 
     volumes:
-      # Aerodrome edits this through its Configuration UI.
-      - ./config.yaml:/opt/aerodrome/config.yaml
-
-      # Persistent SQLite database.
-      - ./data:/opt/aerodrome/data
+      - aerodrome-data:/data
 
     command:
       - python3
       - main.py
       - start
 
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)"
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-    stop_grace_period: 30s
+volumes:
+  aerodrome-data:

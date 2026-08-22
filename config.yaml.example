@@ -156,7 +156,8 @@ retention:
 
 # --- Database ---
 data:
-  db_file: "aircraft_history.db"
+  # Make sure that the database is in a Docker volume so it persists through upgrades
+  db_file: "/data/aircraft_history.db"
 
   # --- SQLite tuning profile (v2.50.13) ---
   # Controls how much memory SQLite is allowed to use for caching and

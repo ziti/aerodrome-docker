@@ -18,11 +18,10 @@ RUN git clone \
 
 WORKDIR /opt/aerodrome
 
-RUN pip install \
-        --no-cache-dir \
-        --disable-pip-version-check \
-        -r requirements.txt
+RUN mkdir -p /data
 
-EXPOSE 8000
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["python3", "main.py", "start"]
