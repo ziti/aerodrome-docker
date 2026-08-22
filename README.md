@@ -12,7 +12,6 @@ This project packages Aerodrome into a container-friendly deployment while keepi
 * Docker Compose configuration
 * Persistent SQLite database storage
 * Persistent Aerodrome configuration
-* Health checking
 * Version pinning through a Docker build argument
 * Works with any compatible `aircraft.json` source, including:
 
@@ -32,52 +31,12 @@ This project packages Aerodrome into a container-friendly deployment while keepi
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/aerodrome-docker.git
+git clone https://github.com/ziti/aerodrome-docker.git
 cd aerodrome-docker
-```
-
-Create the persistent data directory:
-
-```bash
-mkdir -p data
-```
-
-Download the upstream example configuration:
-
-```bash
-curl -fsSL \
-  https://raw.githubusercontent.com/preston-peterson/aerodrome/main/config.yaml.example \
-  -o config.yaml
-```
-
-Edit `config.yaml` and configure your ADS-B receiver:
-
-```yaml
-receiver:
-  ip: "192.168.1.100"
-  port: 8080
-  path: "/data/aircraft.json"
-  poll_interval: 60
-
-  latitude: null
-  longitude: null
-  distance_unit: "nmi"
-
-web:
-  host: "0.0.0.0"
-  port: 8000
-
-data:
-  db_file: "/opt/aerodrome/data/aircraft_history.db"
-```
-
-The `data.db_file` setting should remain under `/opt/aerodrome/data` so the SQLite database is stored in the persistent Docker volume.
-
-Build and start Aerodrome:
-
-```bash
 docker compose up -d --build
 ```
+
+On first start, the container creates `/data/config.yaml` in the persistent `aerodrome-data` named volume. Configure your ADS-B receiver through the Aerodrome web interface, or edit that file as described in [Configuration](#configuration).
 
 Open the dashboard:
 
@@ -101,8 +60,6 @@ services:
         AERODROME_REF: v3.4.123
 
     container_name: aerodrome
-    hostname: aerodrome
-
     restart: unless-stopped
 
     ports:
@@ -112,29 +69,20 @@ services:
       TZ: America/Chicago
 
     volumes:
-      - ./config.yaml:/opt/aerodrome/config.yaml
-      - ./data:/opt/aerodrome/data
+      - aerodrome-data:/data
 
     command:
       - python3
       - main.py
       - start
 
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)"
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-    stop_grace_period: 30s
+volumes:
+  aerodrome-data:
 ```
+
+## Dockhand Deployment
+
+This repository can be deployed as a Git-backed Dockhand stack. Enable **Build images on deploy** and deploy the repository; no container registry is required. The Compose-defined `aerodrome-data` named volume retains Aerodrome's configuration and SQLite database across normal redeployments.
 
 ## Version Pinning
 
@@ -175,36 +123,40 @@ Avoid using Aerodrome's in-application updater when running this image.
 
 ## Configuration
 
-Aerodrome's configuration is stored in:
+Aerodrome's configuration is stored in the `aerodrome-data` named volume at:
 
 ```text
-./config.yaml
+/data/config.yaml
 ```
 
-The file is bind-mounted into the container at:
+The entrypoint symlinks that file to Aerodrome's expected path:
 
 ```text
 /opt/aerodrome/config.yaml
 ```
 
-Aerodrome may update this file when configuration changes are made through its web interface, so it must be writable by the container.
+The entrypoint creates `/data/config.yaml` from Aerodrome's upstream example on first start and changes its database setting to the persistent volume path. Aerodrome may update this file when configuration changes are made through its web interface, so it must remain writable by the container.
 
 ## Persistent Data
 
-Aerodrome's SQLite database is stored in:
+Aerodrome's SQLite database is stored in the `aerodrome-data` named volume:
 
 ```text
-./data/
+/data/aircraft_history.db
 ```
 
 with the recommended configuration:
 
 ```yaml
 data:
-  db_file: "/opt/aerodrome/data/aircraft_history.db"
+  db_file: "/data/aircraft_history.db"
 ```
 
-Do not store the database in the container's application directory unless you are comfortable losing it when the container is recreated.
+Do not store the database in the container's application directory unless you are comfortable losing it when the container is recreated. The entrypoint configures this path automatically for a new volume.
+
+## Image Security
+
+The image uses a multi-stage build and a minimal non-root hardened runtime image. Build-only tooling, including Git, remains in the builder stage; it is not included in the runtime image.
 
 ## Logs
 
@@ -226,7 +178,11 @@ docker compose ps
 docker compose down
 ```
 
-The persistent `config.yaml` and `data/` directory are not removed.
+`docker compose down` preserves the `aerodrome-data` named volume. In contrast, the following command permanently deletes Aerodrome's database and configuration:
+
+```bash
+docker compose down -v
+```
 
 ## Repository Layout
 
@@ -234,19 +190,11 @@ The persistent `config.yaml` and `data/` directory are not removed.
 aerodrome-docker/
 ├── Dockerfile
 ├── docker-compose.yml
-├── config.yaml
-├── data/
-└── README.md
+├── docker-entrypoint.sh
+├── README.md
+├── LICENSE
+└── .gitignore
 ```
-
-A suggested `.gitignore`:
-
-```gitignore
-data/
-config.yaml.bak.*
-```
-
-If your `config.yaml` contains sensitive notification credentials or other secrets, you may also want to exclude it and provide a sanitized `config.yaml.example` instead.
 
 ## Building Manually
 
@@ -261,12 +209,13 @@ docker build \
 Run it:
 
 ```bash
+docker volume create aerodrome-data
+
 docker run -d \
   --name aerodrome \
   --restart unless-stopped \
   -p 8000:8000 \
-  -v "$PWD/config.yaml:/opt/aerodrome/config.yaml" \
-  -v "$PWD/data:/opt/aerodrome/data" \
+  -v aerodrome-data:/data \
   aerodrome:local
 ```
 
