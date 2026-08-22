@@ -18,6 +18,11 @@ RUN git clone \
 
 WORKDIR /opt/aerodrome
 
+RUN pip install \
+    --no-cache-dir \
+    --disable-pip-version-check \
+    -r requirements.txt
+
 RUN mkdir -p /data
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
