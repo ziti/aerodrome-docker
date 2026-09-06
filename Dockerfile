@@ -1,6 +1,6 @@
 FROM dhi.io/python:3.14-debian13-dev AS builder
 
-ARG AERODROME_REF=v3.4.123
+ARG AERODROME_REF=v3.4.127
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
