@@ -57,7 +57,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        AERODROME_REF: v3.4.123
+        AERODROME_REF: v3.4.136
 
     restart: unless-stopped
 
@@ -108,7 +108,7 @@ Aerodrome can be pinned to a specific upstream release using the `AERODROME_REF`
 
 ```yaml
 args:
-  AERODROME_REF: v3.4.123
+  AERODROME_REF: v3.4.136
 ```
 
 To upgrade:
@@ -249,7 +249,7 @@ Build the image:
 
 ```bash
 docker build \
-  --build-arg AERODROME_REF=v3.4.123 \
+  --build-arg AERODROME_REF=v3.4.136 \
   -t aerodrome:local .
 ```
 

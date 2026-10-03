@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        AERODROME_REF: v3.4.123
+        AERODROME_REF: v3.4.136
 
     restart: unless-stopped
 
