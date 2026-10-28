@@ -3,8 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        AERODROME_REF: v3.4.142
 
     restart: unless-stopped
 

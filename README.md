@@ -56,8 +56,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        AERODROME_REF: v3.4.142
 
     restart: unless-stopped
 
@@ -104,18 +102,17 @@ This repository can be deployed as a Git-backed Dockhand stack. Enable **Build i
 
 ## Version Pinning
 
-Aerodrome can be pinned to a specific upstream release using the `AERODROME_REF` build argument:
+The Aerodrome release built into the image is set in one place: the `AERODROME_REF` argument at the top of the [Dockerfile](Dockerfile). Compose uses that default, so there is nothing else to edit.
 
-```yaml
-args:
-  AERODROME_REF: v3.4.142
+To build a different release without changing the file, override it at build time:
+
+```bash
+docker compose build --build-arg AERODROME_REF=<release-tag>
 ```
 
-To upgrade:
+### Automated upgrades
 
-1. Change `AERODROME_REF` to the desired Aerodrome release.
-2. Rebuild the image.
-3. Redeploy the container.
+[Renovate](https://docs.renovatebot.com/) checks Aerodrome's GitHub releases once a week (see [renovate.json](renovate.json)) and opens a pull request that changes `AERODROME_REF`. CI then builds the image, scans it, and runs the integration test, including a check that the running app reports the pinned version. Merge the pull request, then rebuild and redeploy:
 
 ```bash
 docker compose build --pull
@@ -235,10 +232,12 @@ aerodrome-docker/
 ├── scripts/
 │   └── integration-test.sh
 ├── BACKUP.md
+├── CLAUDE.md
 ├── Dockerfile
 ├── docker-compose.yml
 ├── docker-entrypoint.py
 ├── README.md
+├── renovate.json
 ├── LICENSE
 └── .gitignore
 ```
@@ -249,7 +248,7 @@ Build the image:
 
 ```bash
 docker build \
-  --build-arg AERODROME_REF=v3.4.142 \
+  --build-arg AERODROME_REF=<release-tag> \
   -t aerodrome:local .
 ```
 

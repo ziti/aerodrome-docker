@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "schedule": ["before 6am on monday"],
+  "dependencyDashboard": true,
+  "enabledManagers": ["github-actions", "custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Aerodrome release pinned in the Dockerfile",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": ["ARG AERODROME_REF=(?<currentValue>\\S+)"],
+      "depNameTemplate": "preston-peterson/aerodrome",
+      "datasourceTemplate": "github-releases"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDepNames": ["preston-peterson/aerodrome"],
+      "commitMessageTopic": "Aerodrome",
+      "semanticCommitType": "chore",
+      "semanticCommitScope": null,
+      "prBodyNotes": ["Merging rebuilds the image from the new upstream release. CI builds, scans, and runs the integration test, including a check that the running app reports this version."]
+    }
+  ]
+}

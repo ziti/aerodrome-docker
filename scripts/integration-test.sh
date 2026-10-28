@@ -56,6 +56,23 @@ assert_runtime_is_pruned() {
         "import importlib.util, pathlib; assert importlib.util.find_spec('pip') is None; assert not (pathlib.Path('/opt/venv/bin/pip')).exists()"
 }
 
+assert_runs_as_non_root() {
+    compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
+        "import os; assert os.getuid() != 0, 'container runs as root'"
+}
+
+assert_version_matches_pin() {
+    expected=$(sed -n 's/^ARG AERODROME_REF=v\{0,1\}//p' Dockerfile)
+    if [ -z "$expected" ]; then
+        echo "Could not read AERODROME_REF from the Dockerfile." >&2
+        return 1
+    fi
+
+    compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
+        "import json, sys, urllib.request; version = json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/version', timeout=5))['version']; assert version == sys.argv[1], f'running {version}, pinned {sys.argv[1]}'" \
+        "$expected"
+}
+
 trap cleanup EXIT INT TERM
 
 echo "Building and starting project $project_name"
@@ -67,6 +84,8 @@ compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
 compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
     "from pathlib import Path; data = Path('/data'); assert (data / 'config.yaml').is_file(); assert (data / 'aircraft_history.db').is_file(); (data / '.integration-volume-marker').write_text('persisted')"
 assert_runtime_is_pruned
+assert_runs_as_non_root
+assert_version_matches_pin
 
 echo "Recreating the container to verify named-volume persistence"
 compose up --detach --force-recreate --no-build aerodrome
