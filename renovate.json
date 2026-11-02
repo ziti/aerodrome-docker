@@ -4,7 +4,10 @@
   "schedule": ["before 6am on monday"],
   "dependencyDashboard": true,
   "minimumReleaseAge": "3 days",
-  "enabledManagers": ["github-actions", "custom.regex"],
+  "enabledManagers": ["github-actions", "custom.regex", "pip_requirements"],
+  "pip_requirements": {
+    "managerFilePatterns": ["/^requirements\\.lock$/"]
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -21,9 +24,21 @@
       "matchStrings": ["renovate@(?<currentValue>\\S+)"],
       "depNameTemplate": "renovate",
       "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "pip-tools version used by scripts/update-lock.sh",
+      "managerFilePatterns": ["/^scripts/update-lock\\.sh$/"],
+      "matchStrings": ["pip_tools_version=(?<currentValue>\\S+)"],
+      "depNameTemplate": "pip-tools",
+      "datasourceTemplate": "pypi"
     }
   ],
   "packageRules": [
+    {
+      "matchManagers": ["pip_requirements"],
+      "groupName": "Python dependencies"
+    },
     {
       "matchDepNames": ["preston-peterson/aerodrome"],
       "commitMessageTopic": "Aerodrome",

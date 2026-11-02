@@ -1,3 +1,4 @@
-# The build only copies the entrypoint from the context.
+# The build only copies these from the context.
 *
 !docker-entrypoint.py
+!requirements.lock

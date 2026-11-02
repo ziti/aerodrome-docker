@@ -19,10 +19,21 @@ RUN git clone \
     https://github.com/preston-peterson/aerodrome.git \
     /build/aerodrome
 
+COPY requirements.lock /build/requirements.lock
+
+# Installs only hash-checked packages, then confirms they satisfy this release.
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install \
         --no-cache-dir \
-        -r /build/aerodrome/requirements.txt \
+        --require-hashes \
+        -r /build/requirements.lock \
+    && { /opt/venv/bin/pip install \
+            --no-index \
+            --dry-run \
+            --quiet \
+            -r /build/aerodrome/requirements.txt \
+        || { echo "requirements.lock does not satisfy this Aerodrome release. Run scripts/update-lock.sh." >&2; exit 1; }; } \
+    && /opt/venv/bin/pip check \
     && /opt/venv/bin/python -m pip uninstall --yes pip \
     && rm -rf \
         /build/aerodrome/.git \
