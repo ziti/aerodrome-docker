@@ -18,7 +18,7 @@ services:
       - "${AERODROME_BIND_ADDRESS:-0.0.0.0}:${AERODROME_HOST_PORT:-8000}:8000"
 
     environment:
-      TZ: America/Chicago
+      TZ: ${TZ:-UTC}
 
     volumes:
       - aerodrome-data:/data
