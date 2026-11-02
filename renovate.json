@@ -3,6 +3,7 @@
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "schedule": ["before 6am on monday"],
   "dependencyDashboard": true,
+  "minimumReleaseAge": "3 days",
   "enabledManagers": ["github-actions", "custom.regex"],
   "customManagers": [
     {
@@ -12,6 +13,14 @@
       "matchStrings": ["ARG AERODROME_REF=(?<currentValue>\\S+)"],
       "depNameTemplate": "preston-peterson/aerodrome",
       "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Renovate version used to validate this config in CI",
+      "managerFilePatterns": ["/^\\.github/workflows/ci\\.yml$/"],
+      "matchStrings": ["renovate@(?<currentValue>\\S+)"],
+      "depNameTemplate": "renovate",
+      "datasourceTemplate": "npm"
     }
   ],
   "packageRules": [

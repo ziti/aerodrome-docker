@@ -2,7 +2,7 @@
 
 set -eu
 
-project_name="aerodrome-test-${GITHUB_RUN_ID:-local}-$$"
+project_name="${AERODROME_TEST_PROJECT:-aerodrome-test-${GITHUB_RUN_ID:-local}-$$}"
 export AERODROME_HOST_PORT="${AERODROME_HOST_PORT:-0}"
 
 compose() {
