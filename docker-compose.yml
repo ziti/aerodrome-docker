@@ -6,6 +6,14 @@ services:
 
     restart: unless-stopped
 
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    # 0 means no limit. Memory use grows with the database, so choose a limit for your data.
+    mem_limit: ${AERODROME_MEM_LIMIT:-0}
+
     ports:
       - "${AERODROME_BIND_ADDRESS:-0.0.0.0}:${AERODROME_HOST_PORT:-8000}:8000"
 

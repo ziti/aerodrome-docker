@@ -151,6 +151,19 @@ test_log_trim() {
     run_check assert-log-trimmed
 }
 
+test_compose_hardening() {
+    echo "Checking the Compose hardening reached the container"
+    container_id=$(compose ps --quiet aerodrome)
+    settings=$(docker inspect --format '{{json .HostConfig.CapDrop}} {{json .HostConfig.SecurityOpt}} {{.HostConfig.PidsLimit}}' "$container_id")
+    case "$settings" in
+        *ALL*no-new-privileges*256) ;;
+        *)
+            echo "Unexpected container settings: $settings" >&2
+            return 1
+            ;;
+    esac
+}
+
 test_image_metadata() {
     echo "Checking image metadata"
     container_id=$(compose ps --quiet aerodrome)
@@ -246,6 +259,7 @@ test_backup_restore
 test_recreate_during_restore
 test_broken_config_recovery
 test_log_trim
+test_compose_hardening
 test_image_metadata
 test_upgrade_from_previous_release
 
