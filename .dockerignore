@@ -1,0 +1,3 @@
+# The build only copies the entrypoint from the context.
+*
+!docker-entrypoint.py

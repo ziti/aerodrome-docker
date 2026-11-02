@@ -11,7 +11,7 @@ The Aerodrome release lives only in `ARG AERODROME_REF` in `Dockerfile`. Don't c
 - Base images come from `dhi.io` (Docker Hardened Images): `docker login dhi.io` first. CI uses secrets `DHI_USERNAME` / `DHI_TOKEN`.
 
 ## CI (`.github/workflows/ci.yml`)
-`validate` (lint, compose, Renovate config) and `integration` (build, Trivy scan failing on fixable HIGH/CRITICAL, integration test). The integration job is skipped for fork PRs because it needs the secrets. Actions are pinned to SHAs; Renovate updates them.
+`validate` (lint, compose, Renovate config) and `integration` (integration test, then a Trivy scan of that image, failing on fixable HIGH/CRITICAL). The integration job fails on fork PRs because it needs the secrets; test them from a branch in this repo. `scheduled-scan.yml` runs a no-cache build and scan weekly; a failed run is the alert. Actions are pinned to SHAs (the repo requires it); Renovate updates them.
 
 ## Gotchas
 - Base-image (`dhi.io`) updates are not automated: hosted Renovate can't log in. Bump the tags in `Dockerfile` by hand.

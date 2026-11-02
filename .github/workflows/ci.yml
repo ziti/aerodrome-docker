@@ -12,14 +12,18 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Let every run on main finish; only a newer push to a PR replaces its run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Validate Compose configuration
         run: docker compose config --quiet
@@ -41,12 +45,22 @@ jobs:
         run: npx --yes --package renovate@44.190.2 -- renovate-config-validator --strict renovate.json
 
   integration:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      # A skipped job counts as passing a required check, so fork PRs fail here
+      # instead of merging untested. Their commits can be tested from a branch in
+      # this repository, where the registry secrets are available.
+      - name: Stop fork pull requests
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::The integration test needs repository secrets. A maintainer must test this PR from a branch in this repository."
+          exit 1
+
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Log in to Docker Hardened Images
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -55,16 +69,17 @@ jobs:
           username: ${{ secrets.DHI_USERNAME }}
           password: ${{ secrets.DHI_TOKEN }}
 
-      - name: Build image
-        run: docker build --tag aerodrome:ci .
+      - name: Run integration test
+        run: ./scripts/integration-test.sh
+        env:
+          AERODROME_TEST_PROJECT: aerodrome-ci
 
-      - name: Scan image for vulnerabilities
+      # Scans the image the test just ran, and reports even when the test failed.
+      - name: Scan tested image for vulnerabilities
+        if: ${{ !cancelled() }}
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: aerodrome:ci
+          image-ref: aerodrome-ci-aerodrome:latest
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
-
-      - name: Run integration test
-        run: ./scripts/integration-test.sh
