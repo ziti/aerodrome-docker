@@ -1,4 +1,5 @@
 ARG AERODROME_REF=v3.4.151
+ARG AERODROME_COMMIT=32b5c8f47dc957cbad5e136af03a88fa9055cb69
 
 FROM dhi.io/python:3.14-debian13-dev AS builder
 
@@ -12,12 +13,15 @@ WORKDIR /build
 
 # Declared here so a version bump reuses the apt layer above.
 ARG AERODROME_REF
+ARG AERODROME_COMMIT
 
 RUN git clone \
     --depth 1 \
     --branch "${AERODROME_REF}" \
     https://github.com/preston-peterson/aerodrome.git \
-    /build/aerodrome
+    /build/aerodrome \
+    && { [ "$(git -C /build/aerodrome rev-parse HEAD)" = "${AERODROME_COMMIT}" ] \
+        || { echo "${AERODROME_REF} is not commit ${AERODROME_COMMIT}. Set AERODROME_COMMIT to the commit of this release." >&2; exit 1; }; }
 
 COPY requirements.lock /build/requirements.lock
 

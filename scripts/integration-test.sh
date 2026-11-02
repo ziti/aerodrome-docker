@@ -215,7 +215,11 @@ test_upgrade_from_previous_release() {
 
     echo "Upgrading a volume from $previous to $pinned"
     compose down --volumes --remove-orphans
-    compose build --build-arg "AERODROME_REF=$previous"
+    previous_commit=$(git ls-remote https://github.com/preston-peterson/aerodrome.git \
+        "refs/tags/$previous" "refs/tags/$previous^{}" | tail -n 1 | cut -f 1)
+    compose build \
+        --build-arg "AERODROME_REF=$previous" \
+        --build-arg "AERODROME_COMMIT=$previous_commit"
     compose up --detach --no-build
     wait_until_healthy
     assert_running_version "$previous"

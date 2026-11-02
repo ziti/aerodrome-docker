@@ -13,9 +13,10 @@
       "customType": "regex",
       "description": "Aerodrome release pinned in the Dockerfile",
       "managerFilePatterns": ["/^Dockerfile$/"],
-      "matchStrings": ["ARG AERODROME_REF=(?<currentValue>\\S+)"],
+      "matchStrings": ["ARG AERODROME_REF=(?<currentValue>\\S+)\\nARG AERODROME_COMMIT=(?<currentDigest>[0-9a-f]{40})"],
+      "autoReplaceStringTemplate": "ARG AERODROME_REF={{{newValue}}}\nARG AERODROME_COMMIT={{{newDigest}}}",
       "depNameTemplate": "preston-peterson/aerodrome",
-      "datasourceTemplate": "github-releases"
+      "datasourceTemplate": "github-tags"
     },
     {
       "customType": "regex",
