@@ -1,6 +1,6 @@
-FROM dhi.io/python:3.14-debian13-dev AS builder
-
 ARG AERODROME_REF=v3.4.151
+
+FROM dhi.io/python:3.14-debian13-dev AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -9,6 +9,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
+
+# Declared here so a version bump reuses the apt layer above.
+ARG AERODROME_REF
 
 RUN git clone \
     --depth 1 \
@@ -41,15 +44,28 @@ RUN python -m venv /opt/venv \
 
 FROM dhi.io/python:3.14-debian13
 
+ARG AERODROME_REF
+
 COPY --chown=65532:65532 --from=builder /opt/venv /opt/venv
 COPY --chown=65532:65532 --from=builder /build/aerodrome /opt/aerodrome
 
 COPY --chown=65532:65532 docker-entrypoint.py /usr/local/bin/docker-entrypoint.py
 COPY --chown=65532:65532 --from=builder /build/volume-seed/ /data/
 
+VOLUME /data
+
 ENV PATH="/opt/venv/bin:${PATH}"
 
 WORKDIR /opt/aerodrome
 
+LABEL org.opencontainers.image.title="Aerodrome" \
+      org.opencontainers.image.description="Unofficial container packaging for Aerodrome, a self-hosted ADS-B dashboard" \
+      org.opencontainers.image.version="${AERODROME_REF}" \
+      org.opencontainers.image.source="https://github.com/ziti/aerodrome-docker" \
+      org.opencontainers.image.licenses="MIT"
+
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=30s \
+    CMD ["/opt/venv/bin/python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=5)"]
+
 ENTRYPOINT ["/opt/venv/bin/python3", "/usr/local/bin/docker-entrypoint.py"]
-CMD ["python", "main.py", "start"]
+CMD ["python3", "main.py", "start"]
