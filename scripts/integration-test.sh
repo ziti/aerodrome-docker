@@ -120,7 +120,7 @@ test_recreate_during_restore() {
     run_check import-backup
     run_check assert-restore-pending
     recreate
-    run_check assert-no-restore-pending
+    run_check assert-restore-not-applied
     run_check assert-receiver 192.0.2.99
     run_check assert-config-layout
 }
@@ -134,6 +134,51 @@ test_broken_config_recovery() {
     run_check assert-config-recovered
     run_check assert-receiver 192.0.2.99
     run_check assert-config-layout
+
+    echo "The last good config must also survive a recreate"
+    run_check assert-backups-on-volume
+    run_check break-config
+    recreate
+    run_check assert-config-recovered
+    run_check assert-receiver 192.0.2.99
+    run_check assert-config-layout
+}
+
+test_log_trim() {
+    echo "Trimming an oversized log at start"
+    run_check grow-log
+    restart
+    run_check assert-log-trimmed
+}
+
+test_image_metadata() {
+    echo "Checking image metadata"
+    container_id=$(compose ps --quiet aerodrome)
+    mounts=$(docker inspect --format '{{range .Mounts}}{{.Destination}} {{end}}' "$container_id")
+    case "$mounts" in
+        */data*) ;;
+        *)
+            echo "/data is not a volume: $mounts" >&2
+            return 1
+            ;;
+    esac
+
+    image_id=$(docker inspect --format '{{.Image}}' "$container_id")
+    declared=$(docker image inspect --format '{{json .Config.Volumes}}' "$image_id")
+    case "$declared" in
+        *'"/data"'*) ;;
+        *)
+            echo "The image does not declare /data as a volume: $declared" >&2
+            return 1
+            ;;
+    esac
+
+    pinned=$(sed -n 's/^ARG AERODROME_REF=//p' Dockerfile)
+    label=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$image_id")
+    if [ "$label" != "$pinned" ]; then
+        echo "Image version label is $label, expected $pinned" >&2
+        return 1
+    fi
 }
 
 previous_release() {
@@ -183,6 +228,7 @@ compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
 compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
     "from pathlib import Path; data = Path('/data'); assert (data / 'config.yaml').is_file(); assert (data / 'aircraft_history.db').is_file(); (data / '.integration-volume-marker').write_text('persisted')"
 assert_runtime_is_pruned
+run_check assert-known-app-files
 assert_runs_as_non_root
 assert_version_matches_pin
 
@@ -199,6 +245,8 @@ test_settings_save
 test_backup_restore
 test_recreate_during_restore
 test_broken_config_recovery
+test_log_trim
+test_image_metadata
 test_upgrade_from_previous_release
 
 echo "Integration test passed"

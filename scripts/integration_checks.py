@@ -6,6 +6,7 @@ Python: `python3 - <command> [args...] < scripts/integration_checks.py`.
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -15,6 +16,36 @@ APP_CONFIG = "/opt/aerodrome/config.yaml"
 DATA_CONFIG = "/data/config.yaml"
 BACKUP_ZIP = "/data/.integration-backup.zip"
 BOUNDARY = "integrationbackupboundary"
+BACKUPS_LINK = "/opt/aerodrome/.backups"
+BACKUPS_DIR = "/data/.backups"
+LOG_FILE = "/opt/aerodrome/logs/tracker.log"
+LOG_MARKER = b"integration-log-tail-marker"
+APP_DIR = "/opt/aerodrome"
+# Everything the image is expected to ship, and what Aerodrome creates at runtime.
+# A new upstream entry fails the test, so someone decides whether to prune it.
+KNOWN_APP_ENTRIES = {
+    ".gitignore",
+    "API.md",
+    "ARCHITECTURE.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "DEVELOPMENT.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
+    "VERSION",
+    "config.yaml.example",
+    "docs",
+    "install.sh",
+    "requirements.txt",
+    "static",
+    "templates",
+    ".backups",
+    ".tracker.pid",
+    "__pycache__",
+    "config.yaml",
+    "logs",
+}
 
 
 def request(method, path, body=None, headers=None):
@@ -106,9 +137,48 @@ def assert_restore_succeeded():
     )
 
 
-def assert_no_restore_pending():
-    pending = maintenance_status()["restore"]["pending"]
-    assert pending is None, f"restore still pending: {pending}"
+def assert_restore_not_applied():
+    restore = maintenance_status()["restore"]
+    assert restore["pending"] is None, f"restore still pending: {restore['pending']}"
+    assert restore["result"] and restore["result"].get("ok") is False, (
+        f"expected a restore that was not applied, got {restore['result']}"
+    )
+
+
+def assert_backups_on_volume():
+    assert os.path.islink(BACKUPS_LINK), f"{BACKUPS_LINK} is not a symlink"
+    target = os.readlink(BACKUPS_LINK)
+    assert target == BACKUPS_DIR, f"{BACKUPS_LINK} points to {target}"
+    mode = os.stat(BACKUPS_DIR).st_mode & 0o777
+    assert mode == 0o700, f"{BACKUPS_DIR} has mode {mode:04o}, expected 0700"
+    last_good = os.path.join(BACKUPS_DIR, "config.yaml.last-good")
+    assert os.path.isfile(last_good), f"{last_good} is missing"
+
+
+def assert_known_app_files():
+    unknown = sorted(
+        name
+        for name in os.listdir(APP_DIR)
+        if name not in KNOWN_APP_ENTRIES and not re.fullmatch(r"\w+\.py", name)
+    )
+    assert not unknown, (
+        f"new entries in {APP_DIR}: {unknown}. Prune them in the Dockerfile or add "
+        "them to KNOWN_APP_ENTRIES."
+    )
+
+
+def grow_log():
+    with open(LOG_FILE, "ab") as log:
+        log.truncate(60 * 1024 * 1024)
+        log.seek(0, os.SEEK_END)
+        log.write(b"\n" + LOG_MARKER + b"\n")
+
+
+def assert_log_trimmed():
+    size = os.path.getsize(LOG_FILE)
+    assert size < 20 * 1024 * 1024, f"{LOG_FILE} is still {size} bytes"
+    with open(LOG_FILE, "rb") as log:
+        assert LOG_MARKER in log.read(), "the end of the log was not kept"
 
 
 def break_config():
@@ -126,7 +196,7 @@ def assert_config_recovered():
 
 def show_state():
     print(json.dumps(maintenance_status(), indent=2))
-    for directory in ("/data", "/opt/aerodrome/.backups"):
+    for directory in ("/data", BACKUPS_LINK):
         print(directory, sorted(os.listdir(directory)))
     print(
         "/opt/aerodrome config files",
@@ -142,7 +212,11 @@ COMMANDS = {
     "import-backup": import_backup,
     "assert-restore-pending": assert_restore_pending,
     "assert-restore-succeeded": assert_restore_succeeded,
-    "assert-no-restore-pending": assert_no_restore_pending,
+    "assert-restore-not-applied": assert_restore_not_applied,
+    "assert-backups-on-volume": assert_backups_on_volume,
+    "assert-known-app-files": assert_known_app_files,
+    "grow-log": grow_log,
+    "assert-log-trimmed": assert_log_trimmed,
     "break-config": break_config,
     "assert-config-recovered": assert_config_recovered,
     "show-state": show_state,
