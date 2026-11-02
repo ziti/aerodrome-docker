@@ -61,16 +61,115 @@ assert_runs_as_non_root() {
         "import os; assert os.getuid() != 0, 'container runs as root'"
 }
 
+assert_running_version() {
+    compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
+        "import json, sys, urllib.request; version = json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/version', timeout=5))['version']; assert version == sys.argv[1], f'running {version}, expected {sys.argv[1]}'" \
+        "${1#v}"
+}
+
 assert_version_matches_pin() {
-    expected=$(sed -n 's/^ARG AERODROME_REF=v\{0,1\}//p' Dockerfile)
+    expected=$(sed -n 's/^ARG AERODROME_REF=//p' Dockerfile)
     if [ -z "$expected" ]; then
         echo "Could not read AERODROME_REF from the Dockerfile." >&2
         return 1
     fi
 
-    compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
-        "import json, sys, urllib.request; version = json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/version', timeout=5))['version']; assert version == sys.argv[1], f'running {version}, pinned {sys.argv[1]}'" \
-        "$expected"
+    assert_running_version "$expected"
+}
+
+run_check() {
+    compose exec --no-TTY aerodrome /opt/venv/bin/python3 - "$@" < scripts/integration_checks.py
+}
+
+recreate() {
+    compose up --detach --force-recreate --no-build aerodrome
+    wait_until_healthy
+}
+
+restart() {
+    compose restart aerodrome
+    wait_until_healthy
+}
+
+test_settings_save() {
+    echo "Saving settings through the symlinked config"
+    run_check assert-config-layout
+    run_check set-receiver 192.0.2.77
+    run_check assert-receiver 192.0.2.77
+    run_check assert-config-layout
+    recreate
+    run_check assert-receiver 192.0.2.77
+    run_check assert-config-layout
+}
+
+test_backup_restore() {
+    echo "Restoring a backup, which the container finishes at its restart"
+    run_check export-backup
+    run_check set-receiver 192.0.2.88
+    run_check import-backup
+    run_check assert-restore-pending
+    restart
+    run_check assert-restore-succeeded
+    run_check assert-receiver 192.0.2.77
+    run_check assert-config-layout
+}
+
+test_recreate_during_restore() {
+    echo "Recreating the container while a restore waits: current data must be kept"
+    run_check set-receiver 192.0.2.99
+    run_check import-backup
+    run_check assert-restore-pending
+    recreate
+    run_check assert-no-restore-pending
+    run_check assert-receiver 192.0.2.99
+    run_check assert-config-layout
+}
+
+test_broken_config_recovery() {
+    echo "Starting with an unreadable config: the last good one must be used"
+    # The last good copy is written once a start can listen, so start cleanly first.
+    restart
+    run_check break-config
+    restart
+    run_check assert-config-recovered
+    run_check assert-receiver 192.0.2.99
+    run_check assert-config-layout
+}
+
+previous_release() {
+    pinned=$(sed -n 's/^ARG AERODROME_REF=//p' Dockerfile)
+    git ls-remote --tags --refs https://github.com/preston-peterson/aerodrome.git 'v*' \
+        | sed 's#.*refs/tags/##' \
+        | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        | { cat; echo "$pinned"; } \
+        | sort -u -V \
+        | grep -B1 -x "$pinned" \
+        | head -n 1
+}
+
+test_upgrade_from_previous_release() {
+    previous=$(previous_release)
+    pinned=$(sed -n 's/^ARG AERODROME_REF=//p' Dockerfile)
+    if [ -z "$previous" ] || [ "$previous" = "$pinned" ]; then
+        echo "Could not find the release before $pinned." >&2
+        return 1
+    fi
+
+    echo "Upgrading a volume from $previous to $pinned"
+    compose down --volumes --remove-orphans
+    compose build --build-arg "AERODROME_REF=$previous"
+    compose up --detach --no-build
+    wait_until_healthy
+    assert_running_version "$previous"
+    run_check set-receiver 192.0.2.66
+
+    compose build
+    recreate
+    assert_version_matches_pin
+    run_check assert-receiver 192.0.2.66
+    run_check assert-config-layout
+    run_check set-receiver 192.0.2.67
+    run_check assert-receiver 192.0.2.67
 }
 
 trap cleanup EXIT INT TERM
@@ -95,5 +194,11 @@ compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
     "from pathlib import Path; data = Path('/data'); assert (data / 'config.yaml').is_file(); assert (data / 'aircraft_history.db').is_file(); assert (data / '.integration-volume-marker').read_text() == 'persisted'"
 compose exec --no-TTY aerodrome /opt/venv/bin/python3 -c \
     "import urllib.request; response = urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=5); assert response.status == 200"
+
+test_settings_save
+test_backup_restore
+test_recreate_during_restore
+test_broken_config_recovery
+test_upgrade_from_previous_release
 
 echo "Integration test passed"

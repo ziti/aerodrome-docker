@@ -7,7 +7,7 @@ The Aerodrome release lives only in `ARG AERODROME_REF` in `Dockerfile`. Don't c
 
 ## Build and test
 - `docker compose config --quiet`, `shellcheck scripts/*.sh`, `hadolint Dockerfile`
-- `./scripts/integration-test.sh` builds the stack, waits for healthy, checks `/api/ready`, non-root, `/api/version` equals the Dockerfile pin, pruned runtime, and volume persistence across recreate.
+- `./scripts/integration-test.sh` builds the stack, waits for healthy, checks `/api/ready`, non-root, `/api/version` equals the Dockerfile pin, pruned runtime, and volume persistence across recreate; then settings saves, backup and restore (including a recreate while one waits), broken-config recovery, and an upgrade from the previous release. `scripts/integration_checks.py` holds the checks that run inside the container, which has no shell.
 - Base images come from `dhi.io` (Docker Hardened Images): `docker login dhi.io` first. CI uses secrets `DHI_USERNAME` / `DHI_TOKEN`.
 
 ## CI (`.github/workflows/ci.yml`)
