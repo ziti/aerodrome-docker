@@ -65,6 +65,7 @@ By default this Compose file publishes the port on all of the host's network int
 |---|---|---|
 | `AERODROME_BIND_ADDRESS` | `0.0.0.0` | Host address the port is published on |
 | `AERODROME_HOST_PORT` | `8000` | Host port |
+| `TZ` | `UTC` | Time zone for timestamps, such as `America/New_York` |
 | `AERODROME_MEM_LIMIT` | `0` (no limit) | Container memory limit, such as `1g`. Memory use grows with the database, so choose a limit for your data. |
 
 Compose assigns the container and volume names from the Compose project name, so independent stacks do not collide. To run parallel stacks on one host, give each a different project name and host port:
