@@ -88,15 +88,19 @@ Separate multiple hostnames with commas. Aerodrome has no login of its own, so a
 
 ## Version Pinning
 
-The Aerodrome release built into the image is set in one place: the `AERODROME_REF` argument at the top of the [Dockerfile](Dockerfile). Compose uses that default, so there is nothing else to edit.
+The Aerodrome release built into the image is set in one place: the `AERODROME_REF` argument at the top of the [Dockerfile](Dockerfile), with its commit beside it. Compose uses that default, so there is nothing else to edit.
 
 Python dependencies are installed only from [requirements.lock](requirements.lock), with hash checking, so a rebuild installs the same packages. If a different release needs packages the lock does not satisfy, the build stops and tells you to run `scripts/update-lock.sh`.
 
-To build a different release without changing the file, override it at build time:
+The Dockerfile also pins that release's commit in `AERODROME_COMMIT`, and the build fails if the tag points anywhere else. To build a different release without changing the file, override both at build time:
 
 ```bash
-docker compose build --build-arg AERODROME_REF=<release-tag>
+docker compose build \
+  --build-arg AERODROME_REF=<release-tag> \
+  --build-arg AERODROME_COMMIT=<commit-sha>
 ```
+
+Find a tag's commit with `git ls-remote https://github.com/preston-peterson/aerodrome.git '<release-tag>^{}' '<release-tag>'`. If it prints two lines, use the one ending in `^{}`.
 
 ### Automated upgrades
 
@@ -250,9 +254,7 @@ aerodrome-docker/
 Build the image:
 
 ```bash
-docker build \
-  --build-arg AERODROME_REF=<release-tag> \
-  -t aerodrome:local .
+docker build -t aerodrome:local .
 ```
 
 Run it:

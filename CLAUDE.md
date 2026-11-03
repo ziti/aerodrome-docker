@@ -3,7 +3,7 @@
 Unofficial Docker packaging for [Aerodrome](https://github.com/preston-peterson/aerodrome) (self-hosted ADS-B dashboard). Hosted on GitHub (`ziti/aerodrome-docker`), not Gitea: use `gh`, not `tea`.
 
 ## Version
-The Aerodrome release lives only in `ARG AERODROME_REF` in `Dockerfile`. Don't copy it anywhere else (compose and README deliberately don't). Renovate (hosted GitHub App, `renovate.json`) opens a weekly PR bumping it.
+The Aerodrome release lives only in `ARG AERODROME_REF` and its commit `ARG AERODROME_COMMIT` in `Dockerfile`; the build fails if they disagree. Don't copy it anywhere else (compose and README deliberately don't). Renovate (hosted GitHub App, `renovate.json`) opens a weekly PR bumping it.
 
 ## Dependencies
 The image installs only `requirements.lock` (hash-checked). Renovate updates it in one grouped PR. If the build says the lock doesn't satisfy a new Aerodrome release, run `scripts/update-lock.sh` on that branch and commit the result.
