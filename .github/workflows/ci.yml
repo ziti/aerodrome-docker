@@ -42,7 +42,7 @@ jobs:
           ignore: DL3008
 
       - name: Validate Renovate configuration
-        run: npx --yes --package renovate@44.190.2 -- renovate-config-validator --strict renovate.json
+        run: npx --yes --package renovate@44.222.0 -- renovate-config-validator --strict renovate.json
 
   integration:
     runs-on: ubuntu-24.04
