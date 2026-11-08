@@ -25,6 +25,7 @@ APP_DIR = "/opt/aerodrome"
 # A new upstream entry fails the test, so someone decides whether to prune it.
 KNOWN_APP_ENTRIES = {
     ".gitignore",
+    ".gitattributes",
     "API.md",
     "ARCHITECTURE.md",
     "CHANGELOG.md",
