@@ -3,7 +3,7 @@
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "schedule": ["before 6am on monday"],
   "dependencyDashboard": true,
-  "minimumReleaseAge": "3 days",
+  "minimumReleaseAge": "1 day",
   "enabledManagers": ["github-actions", "custom.regex", "pip_requirements"],
   "pip_requirements": {
     "managerFilePatterns": ["/^requirements\\.lock$/"]
