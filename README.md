@@ -112,6 +112,8 @@ docker compose build --pull
 docker compose up -d
 ```
 
+The hosted Renovate app updates independently of CI's pinned validator. CI also validates against an older compatibility baseline; its version is not necessarily the app's current version. The `config:recommended` preset enables the Dependency Dashboard without needing the version-dependent `dependencyDashboard` option.
+
 This deployment intentionally treats the container image as the application lifecycle boundary.
 
 ## Updating
