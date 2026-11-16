@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "schedule": ["before 6am on monday"],
-  "dependencyDashboard": true,
+  "dependencyDashboard": {"enabled": true},
   "minimumReleaseAge": "1 day",
   "enabledManagers": ["github-actions", "custom.regex", "pip_requirements"],
   "pip_requirements": {
