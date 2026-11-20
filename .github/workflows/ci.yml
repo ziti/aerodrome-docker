@@ -46,7 +46,7 @@ jobs:
           COMPAT_RENOVATE_VERSION: 44.222.3
         run: |
           npx --yes --package "renovate@$COMPAT_RENOVATE_VERSION" -- renovate-config-validator --no-global --strict renovate.json
-          npx --yes --package renovate@44.244.2 -- renovate-config-validator --no-global --strict renovate.json
+          npx --yes --package renovate@44.252.5 -- renovate-config-validator --no-global --strict renovate.json
 
   integration:
     runs-on: ubuntu-26.04
