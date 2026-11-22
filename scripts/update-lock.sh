@@ -5,7 +5,7 @@
 
 set -eu
 
-pip_tools_version=7.6.2
+pip_tools_version=7.7.0
 ref=$(sed -n 's/^ARG AERODROME_REF=//p' Dockerfile)
 if [ -z "$ref" ]; then
     echo "Could not read AERODROME_REF from the Dockerfile." >&2
