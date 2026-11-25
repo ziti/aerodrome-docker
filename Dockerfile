@@ -1,7 +1,7 @@
 ARG AERODROME_REF=v3.4.196
 ARG AERODROME_COMMIT=3d4687a15e3d0292ec957cc46c0c1ed31af62d9d
 
-FROM dhi.io/python:3.14-debian13-dev AS builder
+FROM dhi.io/python:3.15-debian13-dev AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
